@@ -1,5 +1,5 @@
-import React from 'react';
-import { View } from 'react-native';
+import React from "react";
+import { View } from "react-native";
 
 export default (
   absAngle,
@@ -14,20 +14,17 @@ export default (
   previousPage,
   thisPage,
   nextPage,
+  animatedStyle,
 ) => (
   <View
     style={[
       styles.page,
-      { zIndex: page === index ? 1 : -1} // Page should not be visible if not current.
+      { zIndex: page === index ? 1 : -1 }, // Page should not be visible if not current.
+      animatedStyle
     ]}
     key={`page-${index}`}
   >
-    <View
-      style={[
-        styles.page,
-        { width: direction === 'left' ? '100%' : 0 },
-      ]}
-    >
+    <View style={[styles.page, { width: direction === "left" ? "100%" : 0 }]}>
       <View
         style={[
           styles.half,
@@ -36,80 +33,59 @@ export default (
           styles.under,
         ]}
       >
-        <View style={width}>
-          {thisPage}
-        </View>
+        <View style={width}>{thisPage}</View>
       </View>
       <View
         style={[
           styles.half,
           styles.horizontalHalf,
           styles.horizontalSecondHalf,
-          styles.under
+          styles.under,
         ]}
       >
-        <View style={secondHalfPull}>
-          {nextPage}
-        </View>
-        <View style={[
-          styles.shadow,
-          { opacity: (180 - absAngle) / 180 }
-        ]} />
+        <View style={secondHalfPull}>{nextPage}</View>
+        <View style={[styles.shadow, { opacity: (180 - absAngle) / 180 }]} />
       </View>
     </View>
-    <View
-      style={[
-        styles.page,
-        { width: direction === 'right' ? '100%' : 0 },
-      ]}
-    >
+    <View style={[styles.page, { width: direction === "right" ? "100%" : 0 }]}>
       <View
         style={[
           styles.half,
           styles.horizontalHalf,
           styles.horizontalFirstHalf,
-          styles.under
+          styles.under,
         ]}
       >
-        <View style={width}>
-          {previousPage}
-        </View>
-        <View style={[
-          styles.shadow,
-          { opacity: (180 - absAngle) / 180 }
-        ]} />
+        <View style={width}>{previousPage}</View>
+        <View style={[styles.shadow, { opacity: (180 - absAngle) / 180 }]} />
       </View>
       <View
         style={[
           styles.half,
           styles.horizontalHalf,
           styles.horizontalSecondHalf,
-          styles.under
+          styles.under,
         ]}
       >
-        <View style={secondHalfPull}>
-          {thisPage}
-        </View>
+        <View style={secondHalfPull}>{thisPage}</View>
       </View>
     </View>
     {/* Current page */}
-    <View
-      style={styles.page}
-    >
+    <View style={styles.page}>
       {/* Left part */}
       <View
         style={[
           styles.half,
           styles.horizontalHalf,
           styles.horizontalFirstHalf,
-          { zIndex: direction === 'right' ? 4 : 3 },
-          { width: direction === 'left' ? 0 : '50%' },
+          { zIndex: direction === "right" ? 4 : 3 },
+          { width: direction === "left" ? 0 : "50%" },
         ]}
-        ref={view => that.firstHalves[index] = view}
+        ref={(view) => (that.firstHalves[index] = view)}
       >
         <View
           style={[
-            { zIndex: absAngle < 90 || direction !== 'right' ? 3 : 2 },
+            { zIndex: absAngle < 90 || direction !== "right" ? 3 : 2 },
             width,
           ]}
         >
@@ -118,16 +94,11 @@ export default (
         <View
           style={[
             styles.page,
-            { zIndex: absAngle > 90 && direction === 'right' ? 3 : 2}
+            { zIndex: absAngle > 90 && direction === "right" ? 3 : 2 },
           ]}
-          transform={[
-            { rotateZ: '180deg' },
-            { rotateX: '180deg' },
-          ]}
+          transform={[{ rotateZ: "180deg" }, { rotateX: "180deg" }]}
         >
-          <View style={secondHalfPull}>
-            {previousPage}
-          </View>
+          <View style={secondHalfPull}>{previousPage}</View>
         </View>
       </View>
       {/* Right part */}
@@ -136,31 +107,27 @@ export default (
           styles.half,
           styles.horizontalHalf,
           styles.horizontalSecondHalf,
-          { zIndex: direction === 'left' ? 4 : 3 },
-          { width: direction === 'right' ? 0 : '50%' },
+          { zIndex: direction === "left" ? 4 : 3 },
+          { width: direction === "right" ? 0 : "50%" },
         ]}
-        ref={view => that.secondHalves[index] = view}
+        ref={(view) => (that.secondHalves[index] = view)}
       >
         <View
           style={[
             secondHalfPull,
-            { zIndex: absAngle < 90 || direction === 'right' ? 3 : 2 },
-          ]}>
+            { zIndex: absAngle < 90 || direction === "right" ? 3 : 2 },
+          ]}
+        >
           {thisPage}
         </View>
         <View
           style={[
             styles.page,
-            { zIndex: absAngle > 90 && direction === 'left' ? 3 : 2 },
+            { zIndex: absAngle > 90 && direction === "left" ? 3 : 2 },
           ]}
-          transform={[
-            { rotateZ: '180deg' },
-            { rotateX: '180deg' },
-          ]}
+          transform={[{ rotateZ: "180deg" }, { rotateX: "180deg" }]}
         >
-          <View style={width}>
-            {nextPage}
-          </View>
+          <View style={width}>{nextPage}</View>
         </View>
       </View>
     </View>
@@ -168,8 +135,8 @@ export default (
       style={[
         styles.page,
         {
-          top: direction !== '' ? '-100%' : 0,
-          overflow: 'hidden',
+          top: direction !== "" ? "-100%" : 0,
+          overflow: "hidden",
         },
       ]}
     >
