@@ -43,24 +43,86 @@ class FlipPage extends React.Component {
     this.lastTapRef = null;
     this.doubleTap = false;
     this.tapTimeout = null;
-    this.zoomIn = false;
+    this.zoomIn = false; //this checks either we have to zoom in or zoom out
     this.zoomOut = true;
+    this.lastTapX = 0;
+    this.lastTapY = 0;
+    this.isDoubleTapped = false; //this checks is there a double tapped or not
+    this.allowSingleTapMove = false;
+    this.isDoubleTappedZoomIn = false; //this checks either we have to zoom in or zoom out on double tap
+    this.isDoubleTappedZoomOut = false;
+    this.tapStartTime = 0;
+    this.hasMoved = false;
+    this.allowZoom = true;
 
     this.tapX = 0;
     this.tapY = 0;
-    this.lastTapX = 0;
-    this.lastTapY = 0;
+    this.lastDx = 0;
+    this.oneFingerRemoved = false;
+    this.allowPinch = true;
 
     this.onLayout = this.onLayout.bind(this);
     this.renderPage = this.renderPage.bind(this);
   }
 
+  //this handles double tap
+  handleDoubleTap(evt, gestureState) {
+
+    const touches = evt?.nativeEvent?.touches;
+    if(touches?.length == 1 && (Math.abs(gestureState?.dx) < 1 && Math.abs(gestureState?.dy) < 1)) {
+    
+      const now = Date.now();
+      const DOUBLE_TAP_DELAY = 800;
+      this.tapStartTime = Date.now();
+
+      const xDiff = Math.abs(Math.abs(touches?.[0]?.pageX) - this.lastTapX);
+      const yDiff = Math.abs(Math.abs(touches?.[0]?.pageY) - this.lastTapY);
+
+      //if there is a double tap within delay time and there is no dragging with finger 
+      //then this handles zoom in or zoom out for double tap
+      if (this.lastTapRef && ((now - this.lastTapRef) < DOUBLE_TAP_DELAY) && !this.hasMoved && xDiff < 20 && yDiff < 20) {
+        // Double tap detected
+        this.lastTapRef = null;
+        if (this.scaleRef > 1) {
+          this.isDoubleTappedZoomOut = true;
+          this.isDoubleTappedZoomIn = false;
+          this.allowZoom = false;
+          this.zoomOut = false;
+        } else {
+          this.isDoubleTappedZoomIn = true;
+          this.isDoubleTappedZoomOut = false;
+          this.allowZoom = true;
+          this.zoomOut = true;
+        }
+        this.lastTapX = 0;
+        this.lastTapY = 0;
+      } else {
+        this.lastTapRef = now;
+        this.isDoubleTapped = false;
+        this.lastTapX = Math.abs(touches?.[0]?.pageX);
+        this.lastTapY = Math.abs(touches?.[0]?.pageY);
+        this.hasMoved = false;
+      }
+    };
+    if (this.allowGesture) return false;
+    return true;
+  }
+
+  handleSingleTap(evt, gestureState) {
+    const touches = evt?.nativeEvent?.touches;
+    if (touches?.length == 1 && this.scaleRef > 1) this.allowSingleTapMove = true;
+    else this.allowSingleTapMove = false;
+  }
+
   UNSAFE_componentWillMount() {
     this.panResponder = PanResponder.create({
+      // onMoveShouldSetPanResponder
+      
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         const { dx, dy } = gestureState;
         const touches = evt?.nativeEvent?.touches;
 
+        //this checks either the movement is in between bounday or not
         const windowHeigthCenter  = this.windowHeight / 2;
         const windowWidthCenter = this.windowWidth / 2;
         const scaledImageHeightCenter = (this.props.imgHeight * this.scaleRef) / 2;
@@ -80,114 +142,21 @@ class FlipPage extends React.Component {
             prevDistance: distance,
           });
         }
+        // this.handleDoubleTap(evt, gestureState);
+        // this.handleSingleTap(evt, gestureState);
         return true;
         if (touches?.length == 1) return ((allowHorizontalTranslation || allowVerticalTranslation) && checkFinalCondition) || this.allowZoom;
         return checkFinalCondition || this.state.allowZoom
       },
       onPanResponderGrant: (evt, gestureState) => {
-        this.setState({
+        !this.isDoubleTapped && this.setState({
           offsetX: this.state.lastX,
           offsetY: this.state.lastY,
         })
-        const touches = evt?.nativeEvent?.touches;
-        // this is to calc tapping difference
-        const xDiff = Math.abs(this.lastTapX - touches?.[0]?.locationX);
-        const yDiff = Math.abs(this.lastTapY - touches?.[0]?.locationY);
-        if(touches?.length == 1) {
-          const xDiff = Math.abs(this.lastTapX - touches?.[0]?.locationX);
-          const yDiff = Math.abs(this.lastTapY - touches?.[0]?.locationY);
-          const now = Date.now();
-          const DOUBLE_TAP_DELAY = 300;
-
-          if (this.lastTapRef && (now - this.lastTapRef) < DOUBLE_TAP_DELAY && (xDiff < 20 && yDiff < 20)) {
-            // Double tap detected
-            this.lastTapRef = null;
-            if (this.scaleRef > 1) {
-              this.zoomIn = false;
-              this.zoomOut = true;
-
-              this.scaleRef = 1;
-              this.animatedStyle = {
-              }
-              this.setState({
-                animatedStyle: {
-                  transform: [
-                    { scale: this.scaleRef }
-                  ]
-                },
-                scale: this.scaleRef,
-              });
-              setTimeout(() => {
-                this.allowZoom = true;
-              }, 500);
-
-            } else {
-              this.zoomIn = true;
-              this.zoomOut = false;
-
-
-              this.scaleRef = 3;
-              this.animatedStyle = {
-                transform: [
-                  { scale: this.scaleRef },
-                ]
-              }
-
-              const xCenter = this.windowWidth / 2;
-              const yCenter = this.props.imgHeight / 2;
-
-              const isLeftX = touches?.[0]?.pageX > xCenter;
-              const isUpperY = touches?.[0]?.pageY > yCenter;
-
-              const xAdjustment = (xCenter - touches?.[0]?.pageX) / this.scaleRef;
-              const yAdjustment = (yCenter - touches?.[0]?.pageY) / this.scaleRef;
-
-              const xLeft = xCenter - touches?.[0]?.locationX - xAdjustment;
-              const xRight = xCenter - touches?.[0]?.locationX - xAdjustment;
-
-              const yUpper = yCenter - touches?.[0]?.locationY - yAdjustment;
-              const yLower = yCenter - touches?.[0]?.locationY - yAdjustment;
-
-              const x = isLeftX ? xLeft : xRight;
-              const y = isUpperY ? yUpper : yLower;
-
-              this.tapX = x;
-              this.tapY =  y;
-
-              this.setState({
-                lastX: x,
-                lastY: y,
-                gestureX: gestureState?.dx,
-                gestureY: gestureState?.dy,
-                offsetX: this.tapX * this.scaleRef,
-                offsetY: this.tapY * this.scaleRef,
-                // gestureX: xLeft,
-                // gestureY: yLower,
-                // offsetX: this.state.lastX + xLeft,
-                // offsetY: this.state.lastY + yLower,
-                animatedStyle: {
-                  transform: [
-                    { scale: this.scaleRef },
-                    {translateX: x},
-                    {translateY: y},
-                  ]
-                },
-                scale: this.scaleRef,
-              });
-              setTimeout(() => {
-                this.allowZoom = false;
-              }, 500);
-            }
-            this.lastTapX = 0;
-            this.lastTapY = 0;
-          } else {
-            this.lastTapRef = now;
-            this.lastTapX = touches?.[0]?.locationX;
-            this.lastTapY = touches?.[0]?.locationY;
-          }
-        };
-        
-        // this.props.disableHeader && this.props.disableHeader();
+        this.handleDoubleTap(evt, gestureState);
+        //this return is called because sometimes panResponderMove is not called
+        //dont know why that why i am explicitly calling this return statement
+        return this.handlePanResponderMove(evt, gestureState);
       },
       onPanResponderMove: this.handlePanResponderMove.bind(this),
       onPanResponderRelease: this.handlePanResponderStop.bind(this),
@@ -219,16 +188,16 @@ class FlipPage extends React.Component {
     const { halfHeight, halfWidth, page } = this.state;
     const { orientation } = this.props;
     const firstHalf = this.firstHalves[page];
-
     let matrix = orientation === "vertical" ? rotateX(angle) : rotateY(angle);
     const origin =
       orientation === "vertical"
         ? { x: 0, y: halfHeight / 2, z: 0 }
         : { x: halfWidth / 2, y: 0, z: 0 };
       this.allowZoom && transformOrigin(matrix, origin);
-      this.allowZoom &&firstHalf.setNativeProps({
+      this.allowZoom && firstHalf.setNativeProps({
       transform: [{ matrix }, { perspective: 100000 }],
     });
+    if (this.allowZoom) this.allowGesture = true;
   }
 
   rotateSecondHalf(angle) {
@@ -245,6 +214,7 @@ class FlipPage extends React.Component {
       this.allowZoom && secondHalf.setNativeProps({
       transform: [{ matrix }, { perspective: 100000 }],
     });
+    if (this.allowZoom) this.allowGesture = true;
   }
 
   calculateDistance = (touch1, touch2) => {
@@ -260,7 +230,101 @@ class FlipPage extends React.Component {
     const dn = orientation === "vertical" ? dy : dx;
     const touches = e.nativeEvent.touches;
 
-    if (this.allowZoom && this.zoomOut && numberActiveTouches == 1 && this.scaleRef == 1) {
+
+
+    //this store the movement 
+    if (touches?.length == 1) {
+      this.oneFingerRemoved = true;
+      this.lastDx = Math.abs(dx);
+    } else if (touches?.length >= 2) this.oneFingerRemoved = false;
+
+    //if there is single finger and there is no drag then this 
+    //zoom in or zoom out based on double tap
+    if (touches?.length == 1 && (Math.abs(dx) < 10 || Math.abs(dy) < 10)) {
+      if (this.isDoubleTappedZoomOut) {
+        this.zoomIn = false;
+          this.zoomOut = true;
+          this.isDoubleTapped = false;
+          this.scaleRef = 1;
+          this.animatedStyle = {
+            transform: [
+              { scale: this.scaleRef }
+            ]
+          }
+          this.setState({
+            animatedStyle: {
+              transform: [
+                { scale: this.scaleRef }
+              ]
+            },
+            scale: this.scaleRef,
+          });
+          setTimeout(() => {
+            this.allowZoom = true;
+          }, 500);
+      }
+      else if (this.isDoubleTappedZoomIn) {
+        this.zoomIn = true;
+        this.zoomOut = false;
+        this.isDoubleTapped = true;
+
+        this.scaleRef = 3;
+
+        const xCenter = this.windowWidth / 2;
+        const yCenter = this.props.imgHeight / 2;
+
+        const isLeftX = touches?.[0]?.pageX > xCenter;
+        const isUpperY = touches?.[0]?.pageY > yCenter;
+
+        const xAdjustment = (xCenter - touches?.[0]?.pageX) / this.scaleRef;
+        const yAdjustment = (yCenter - touches?.[0]?.pageY) / this.scaleRef;
+
+        const xLeft = xCenter - touches?.[0]?.locationX - xAdjustment;
+        const xRight = xCenter - touches?.[0]?.locationX - xAdjustment;
+
+        const yUpper = yCenter - touches?.[0]?.locationY - yAdjustment;
+        const yLower = yCenter - touches?.[0]?.locationY - yAdjustment;
+
+        const x = isLeftX ? xLeft : xRight;
+        const y = isUpperY ? yUpper : yLower;
+
+        this.tapX = x;
+        this.tapY =  y;
+
+        this.animatedStyle = {
+          transform: [
+            { scale: this.scaleRef },
+            {translateX: x},
+            {translateY: y},
+          ]
+        }
+
+        this.setState({
+          lastX: x,
+          lastY: y,
+          gestureX: gestureState?.dx,
+          gestureY: gestureState?.dy,
+          offsetX: this.tapX * this.scaleRef,
+          offsetY: this.tapY * this.scaleRef,
+          animatedStyle: {
+            transform: [
+              { scale: this.scaleRef },
+              {translateX: x},
+              {translateY: y},
+            ]
+          },
+          scale: this.scaleRef,
+        });
+        setTimeout(() => {
+          this.allowZoom = false;
+        }, 500);
+      }
+      this.isDoubleTappedZoomIn = false;
+      this.isDoubleTappedZoomOut = false;
+    }
+
+    //this allows flipping with single finger only
+    if (this.allowZoom && this.zoomOut && this.scaleRef == 1 && numberActiveTouches == 1 && !this.isDoubleTapped) {
       this.animatedStyle = {}
       this.scaleRef = 1;
       this.setState({
@@ -276,7 +340,7 @@ class FlipPage extends React.Component {
         gestureY: 0,
       })
 
-      if (this.allowZoom && this.scaleRef == 1) {
+      if (this.allowZoom) {
         let angle = (dn / 250) * 180;
 
       if (angle < 0) {
@@ -343,14 +407,30 @@ class FlipPage extends React.Component {
       }
       }
     }
+    //if there are two fingers and they are not at the same position for a time then
+    //this pinch in or pinch out
+    if (touches?.length >= 2 && (Math.floor(Math.abs(dx)) == Math.floor(this.lastDx) || Math.abs(Math.floor(Math.abs(dx)) - Math.floor(this.lastDx)) < 2)) {
+      this.allowPinch = false;
+   
+      setTimeout(() => {
 
-    if (touches?.length >= 2 && !this.state.direction) {
+        this.lastDx = Math.abs(dx);
+        }, 300);
+    } else this.allowPinch = true;
+
+    // console.log("lastDx dx: ", this.lastDx, Math.abs(dx), Math.abs(this.lastDx - Math.abs(dx)));
+
+    //if there are two fingers then this zoom in zoom out or pinch in or pinch out
+   // if (touches?.length >= 2 && !this.state.direction && !this.isDoubleTapped && (this.oneFingerRemoved ? Math.abs(this.lastDx - Math.abs(dx)) > 15 : this.allowPinch)) 
+   if (touches?.length >= 2 && !this.state.direction && !this.isDoubleTapped && (this.oneFingerRemoved ? Math.abs(this.lastDx - Math.abs(dx)) > 15 : this.allowPinch)) {
+
       const touch1 = { x: touches[0].pageX, y: touches[0].pageY };
       const touch2 = { x: touches[1].pageX, y: touches[1].pageY };
       const distance = this.calculateDistance(touch1, touch2);
-      const scaleFactor = this.scaleRef * (distance / this.state.prevDistance);
+      let scaleFactor = this.scaleRef;
+      if (distance > this.state.prevDistance) scaleFactor += 0.15;
+      else if (distance < this.state.prevDistance) scaleFactor -= 0.15;
       this.scaleRef = scaleFactor <= 1 ? 1 : scaleFactor >= 3 ? 3 : scaleFactor;
-     
       if (this.scaleRef > 1) {
         LayoutAnimation.easeInEaseOut();
         this.allowZoom = false;
@@ -368,14 +448,25 @@ class FlipPage extends React.Component {
           offsetY: 0,
           gestureX: 0,
           gestureY: 0,
-          scale: 1
+          scale: 1,
+          animatedStyle: {},
         })
+        this.animatedStyle = {};
       }
+      if (distance != this.state.prevDistance) {
       this.setState({
         prevDistance: distance
       })
+      }
+      this.oneFingerRemoved = false;
+      setTimeout(() => {
+
+      this.lastDx = Math.abs(dx);
+      }, 300);
+
     }
 
+    //this checks whether the movement is in between boundary or not
     const windowHeigthCenter  = this.windowHeight / 2;
     const windowWidthCenter = this.windowWidth / 2;
     const scaledImageHeightCenter = (this.props.imgHeight * this.scaleRef) / 2;
@@ -404,7 +495,11 @@ class FlipPage extends React.Component {
     const x = isLeftX ? xLeft : xRight;
     const y = isUpperY ? yUpper : yLower;
 
-    if (!this.allowZoom && touches?.length == 2 && !this.state.direction) {
+    //this allows movement with two fingers
+    if (!this.allowZoom && touches?.length == 2 && !this.state.direction && !this.isDoubleTapped) {
+      //this checks either there is tap or drap
+      if (Math.abs(dx) > 15 || Math.abs(dy) > 15) this.hasMoved = true;
+        
         if (allowHorizontalTranslation && allowVerticalTranslation && !this.state.direction && this.scaleRef > 1) {
           this.setState({
             gestureX: gestureState.dx,
@@ -453,15 +548,12 @@ class FlipPage extends React.Component {
         }
     }
 
-    // console.log("values: ", this.state.lastX + gestureState.dx, x * this.scaleRef);
-    // console.log(allowVerticalTranslation, this.state.lastX + gestureState?.dx > 0 ? maximumXTranslate : -maximumXTranslate)
-
-    // console.log("tapX is: ", this.tapX, gestureState?.dx, this.state.lastX);
-    // console.log("touches are: ", this.tapX - dx);
-
-    if (!this.allowZoom && touches?.length == 1 && !this.state.direction) {
+    //this allows movement with one finger
+    if (!this.allowZoom && touches?.length == 1 && this.state.direction != true && !this.isDoubleTapped) {
+      //this checks either there is a tap or drag
+      if (Math.abs(dx) > 15 || Math.abs(dy) > 15) this.hasMoved = true;
       if (allowHorizontalTranslation && allowVerticalTranslation && !this.state.direction && this.scaleRef > 1) {
-       
+      
         this.setState({
           gestureX: gestureState.dx,
           gestureY: gestureState.dy,
@@ -530,7 +622,6 @@ class FlipPage extends React.Component {
       this.setState({ direction: "" });
 
       this.state.animating = true;
-
 //Timeout to prevent the page from flipping back immediately
       setTimeout(() => {
         this.state.animating = false;
@@ -561,7 +652,10 @@ class FlipPage extends React.Component {
           }
         );
       } else {
-        if (typeof onFinish === "function") {
+        //this call onFinish function only
+        //where scale ref is 1
+        //and there is swipe towards next page
+        if (typeof onFinish === "function" && this.allowZoom && Math.abs(angle) > 15) {
           onFinish(direction);
         }
       }
@@ -632,6 +726,8 @@ class FlipPage extends React.Component {
     const dn = orientation === "vertical" ? dy : dx;
     const absAngle = Math.abs(angle);
 
+    if (absAngle > 5) this.lastTapRef = null;
+
     const windowHeigthCenter  = this.windowHeight / 2;
     const windowWidthCenter = this.windowWidth / 2;
     const scaledImageHeightCenter = (this.props.imgHeight * this.scaleRef) / 2;
@@ -644,9 +740,16 @@ class FlipPage extends React.Component {
     
     if (this.zoomIn) {
       this.zoomIn = false
+      this.zoomOut = false;
       this.allowZoom = false;
     };
     if (this.zoomOut) this.allowZoom = true;
+
+    this.isDoubleTapped = false;
+    this.allowSingleTapMove = false;
+    this.isDoubleTappedZoomIn = false;
+    this.isDoubleTappedZoomOut = false;
+    this.tapStartTime = 0;
 
     !this.allowZoom && !this.state.direction &&
     this.setState({
@@ -655,7 +758,6 @@ class FlipPage extends React.Component {
     });
 
     if (this.scaleRef == 1 && !this.state.direction) {
-      // console.log('allowing zoom');
         setTimeout(() => {
           this.allowZoom = true;
           this.zoomOut = true;
@@ -669,6 +771,12 @@ class FlipPage extends React.Component {
           gestureX: 0,
           gestureY: 0,
       })
+    } else if (this.scaleRef > 1 && !this.state.direction) {
+      setTimeout(() => {
+        this.allowZoom = false;
+        this.zoomOut = false;
+        this.zoomIn = true;
+      }, 500);
     }
 
     if (numberActiveTouches == 2 && !this.state.direction) {
@@ -713,9 +821,9 @@ class FlipPage extends React.Component {
       );
     }
 
+
     this.scaleRef > 1 && this.props.setHeader && this.props.setHeader(false);
     this.scaleRef <= 1 && this.props.setHeader && this.props.setHeader(true);
-    // this.props.setHeader && this.state.scale <= 1 && !this.state.direction &&  this.props.setHeader(this.initialHeader)
   }
 
   onLayout(e) {

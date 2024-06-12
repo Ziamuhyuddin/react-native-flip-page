@@ -3,7 +3,8 @@ import { StyleSheet } from "react-native";
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor:'white'
+    backgroundColor:'white',
+    zIndex: 10000,
   },
   page: {
     position: "absolute",
