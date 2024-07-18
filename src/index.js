@@ -60,6 +60,7 @@ class FlipPage extends React.Component {
     this.lastDx = 0;
     this.oneFingerRemoved = false;
     this.allowPinch = true;
+    this.hasEnd = false;
 
     this.onLayout = this.onLayout.bind(this);
     this.renderPage = this.renderPage.bind(this);
@@ -80,8 +81,11 @@ class FlipPage extends React.Component {
 
       //if there is a double tap within delay time and there is no dragging with finger 
       //then this handles zoom in or zoom out for double tap
+    console.log("dx: ", Math.abs(Math.abs(touches?.[0]?.pageX)), this.lastTapX, xDiff);
+
       if (this.lastTapRef && ((now - this.lastTapRef) < DOUBLE_TAP_DELAY) && !this.hasMoved && xDiff < 20 && yDiff < 20) {
         // Double tap detected
+        console.log("inside");
         this.lastTapRef = null;
         if (this.scaleRef > 1) {
           this.isDoubleTappedZoomOut = true;
@@ -142,9 +146,15 @@ class FlipPage extends React.Component {
             prevDistance: distance,
           });
         }
+        console.log("here");
         // this.handleDoubleTap(evt, gestureState);
         // this.handleSingleTap(evt, gestureState);
+        if ((Math.abs(this.state.angle) >= 5 && (this.state.animating || this.state.direction)) || this.hasEnd){
+          console.log("FALSE");
+          return false;
+        } else {
         return true;
+        }
         if (touches?.length == 1) return ((allowHorizontalTranslation || allowVerticalTranslation) && checkFinalCondition) || this.allowZoom;
         return checkFinalCondition || this.state.allowZoom
       },
@@ -153,6 +163,7 @@ class FlipPage extends React.Component {
           offsetX: this.state.lastX,
           offsetY: this.state.lastY,
         })
+        this.hasEnd = true;
         this.handleDoubleTap(evt, gestureState);
         //this return is called because sometimes panResponderMove is not called
         //dont know why that why i am explicitly calling this return statement
@@ -230,7 +241,7 @@ class FlipPage extends React.Component {
     const dn = orientation === "vertical" ? dy : dx;
     const touches = e.nativeEvent.touches;
 
-
+    console.log("moving");
 
     //this store the movement 
     if (touches?.length == 1) {
@@ -610,9 +621,8 @@ class FlipPage extends React.Component {
   resetHalves() {
     const { loopForever, children } = this.props;
     const pages = children.length;
-    const { angle, direction, shouldGoNext, shouldGoPrevious, page } =
-      this.state;
-
+    const { angle, direction, shouldGoNext, shouldGoPrevious, page } = this.state;
+  
     const firstHalf = this.firstHalves[page];
     const secondHalf = this.secondHalves[page];
 
@@ -622,7 +632,7 @@ class FlipPage extends React.Component {
       this.setState({ direction: "" });
 
       this.state.animating = true;
-//Timeout to prevent the page from flipping back immediately
+      // Timeout to prevent the page from flipping back immediately
       setTimeout(() => {
         this.state.animating = false;
       }, 500);
@@ -652,21 +662,21 @@ class FlipPage extends React.Component {
           }
         );
       } else {
-        //this call onFinish function only
-        //where scale ref is 1
-        //and there is swipe towards next page
+        // this call onFinish function only
+        // where scale ref is 1
+        // and there is swipe towards next page
         if (typeof onFinish === "function" && this.allowZoom && Math.abs(angle) > 15) {
           onFinish(direction);
         }
       }
     };
-
+  
     // Already swiped all the way
     if (Math.abs(angle) === 180) {
       finish();
       return;
     }
-
+  
     let targetAngle;
     if (angle < -90) {
       targetAngle = -180;
@@ -675,35 +685,44 @@ class FlipPage extends React.Component {
     } else {
       targetAngle = 0;
     }
-
+  
+    if (this.resetTimer) {
+      clearInterval(this.resetTimer);
+    }
+  
     this.resetTimer = setInterval(() => {
       let { angle } = this.state;
-
+  
       angle += angle < targetAngle ? 5 : -5;
-
+  
       if (angle < 0) {
         angle = Math.max(angle, -180);
       } else {
         angle = Math.min(angle, 180);
       }
-
+  
       let matrix = rotateX(angle);
-
+  
       if (angle < 0) {
         this.rotateSecondHalf(angle);
       } else {
         this.rotateFirstHalf(angle);
       }
-
-      this.setState({ angle });
-
+  
+      this.setState((prevState) => {
+        if (prevState.angle !== angle) {
+          return { angle };
+        }
+        return null;
+      });
+  
       if (
         (targetAngle < 0 && angle <= targetAngle) || // Flip second half to top
         (targetAngle === 0 && Math.abs(angle) <= 5) ||
         (targetAngle > 0 && angle >= targetAngle) // Flip first half to bottom
       ) {
         clearInterval(this.resetTimer);
-
+  
         if (direction === "top" || direction === "left" || direction === "") {
           this.rotateSecondHalf(targetAngle);
         } else if (
@@ -718,6 +737,122 @@ class FlipPage extends React.Component {
       }
     }, 10);
   }
+  
+  
+//   resetHalves() {
+//     const { loopForever, children } = this.props;
+//     const pages = children.length;
+//     const { angle, direction, shouldGoNext, shouldGoPrevious, page } =
+//       this.state;
+
+//     const firstHalf = this.firstHalves[page];
+//     const secondHalf = this.secondHalves[page];
+
+//     const finish = () => {
+//       const { onFinish } = this.props;
+//       const { direction } = this.state;
+//       this.setState({ direction: "" });
+
+//       this.state.animating = true;
+//       console.log("BEFORE");
+// //Timeout to prevent the page from flipping back immediately
+//       setTimeout(() => {
+//         console.log("AFTER");
+     
+//         this.state.animating = false;
+//       }, 500);
+
+//       if (shouldGoNext) {
+//         this.setState(
+//           {
+//             angle: 0,
+//             page: loopForever && this.isOnLastPage() ? 0 : page + 1,
+//           },
+//           () => {
+//             this.allowZoom && this.props.onPageChange(this.state.page, "next");
+//             this.allowZoom && firstHalf.setNativeProps({ transform: [] });
+//             this.allowZoom && secondHalf.setNativeProps({ transform: [] });
+//           }
+//         );
+//       } else if (shouldGoPrevious) {
+//         this.setState(
+//           {
+//             angle: 0,
+//             page: loopForever && this.isOnFirstPage() ? pages - 1 : page - 1,
+//           },
+//           () => {
+//             this.allowZoom && this.props.onPageChange(this.state.page, "prev");
+//             this.allowZoom && firstHalf.setNativeProps({ transform: [] });
+//             this.allowZoom && secondHalf.setNativeProps({ transform: [] });
+//           }
+//         );
+//       } else {
+//         //this call onFinish function only
+//         //where scale ref is 1
+//         //and there is swipe towards next page
+//         if (typeof onFinish === "function" && this.allowZoom && Math.abs(angle) > 15) {
+//           onFinish(direction);
+//         }
+//       }
+//     };
+
+//     // Already swiped all the way
+//     if (Math.abs(angle) === 180) {
+//       finish();
+//       return;
+//     }
+
+//     let targetAngle;
+//     if (angle < -90) {
+//       targetAngle = -180;
+//     } else if (angle > 90) {
+//       targetAngle = 180;
+//     } else {
+//       targetAngle = 0;
+//     }
+
+//     this.resetTimer = setInterval(() => {
+//       let { angle } = this.state;
+
+//       angle += angle < targetAngle ? 5 : -5;
+
+//       if (angle < 0) {
+//         angle = Math.max(angle, -180);
+//       } else {
+//         angle = Math.min(angle, 180);
+//       }
+
+//       let matrix = rotateX(angle);
+
+//       if (angle < 0) {
+//         this.rotateSecondHalf(angle);
+//       } else {
+//         this.rotateFirstHalf(angle);
+//       }
+
+//       this.setState({ angle });
+
+//       if (
+//         (targetAngle < 0 && angle <= targetAngle) || // Flip second half to top
+//         (targetAngle === 0 && Math.abs(angle) <= 5) ||
+//         (targetAngle > 0 && angle >= targetAngle) // Flip first half to bottom
+//       ) {
+//         clearInterval(this.resetTimer);
+
+//         if (direction === "top" || direction === "left" || direction === "") {
+//           this.rotateSecondHalf(targetAngle);
+//         } else if (
+//           direction === "bottom" ||
+//           direction === "right" ||
+//           direction === ""
+//         ) {
+//           this.rotateFirstHalf(targetAngle);
+//         }
+
+//         finish();
+//       }
+//     }, 10);
+//   }
 
   handlePanResponderStop(e, gestureState) {
     const { dx, dy, numberActiveTouches } = gestureState;
@@ -727,6 +862,7 @@ class FlipPage extends React.Component {
     const absAngle = Math.abs(angle);
 
     if (absAngle > 5) this.lastTapRef = null;
+    this.hasEnd = false;
 
     const windowHeigthCenter  = this.windowHeight / 2;
     const windowWidthCenter = this.windowWidth / 2;
